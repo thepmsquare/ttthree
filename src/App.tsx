@@ -1,11 +1,12 @@
-import { Button } from "@heroui/react";
+import { Routes, Route } from "react-router";
+import Home from "./pages/Home";
 import "./stylesheets/App.css";
 
 function App() {
   return (
-    <>
-      <Button>My Button</Button>
-    </>
+    <Routes>
+      <Route path="/" element={<Home />} />
+    </Routes>
   );
 }
 
