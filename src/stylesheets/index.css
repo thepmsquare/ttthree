@@ -1,3 +1,15 @@
 @import "tailwindcss";
 
 @import "@heroui/styles";
+
+:root {
+  font-family: "Outfit", sans-serif;
+}
+
+body {
+  font-family: "Outfit", sans-serif;
+}
+
+.accent-font {
+  font-family: "Fraunces", serif;
+}
