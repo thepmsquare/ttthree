@@ -1,5 +1,6 @@
 import { Button, Surface, Separator } from "@heroui/react";
 import { useTheme } from "../contexts/ThemeContext";
+import { User, Users, Globe, Sun, Moon, Pickaxe } from "lucide-react";
 
 export default function Home() {
   const { isDark, toggleTheme } = useTheme();
@@ -17,14 +18,26 @@ export default function Home() {
         <Separator />
 
         <div className="flex flex-col gap-3">
-          <Button variant="primary" className="w-full font-semibold">
-            single player
+          <Button variant="primary" isDisabled className="w-full font-semibold flex justify-between items-center px-4">
+            <span className="flex items-center gap-2">
+              <User className="w-4 h-4" />
+              single player
+            </span>
+            <Pickaxe className="w-4 h-4 opacity-50" />
           </Button>
-          <Button variant="secondary" className="w-full font-semibold">
-            local multiplayer
+          <Button variant="secondary" isDisabled className="w-full font-semibold flex justify-between items-center px-4">
+            <span className="flex items-center gap-2">
+              <Users className="w-4 h-4" />
+              local multiplayer
+            </span>
+            <Pickaxe className="w-4 h-4 opacity-50" />
           </Button>
-          <Button variant="secondary" className="w-full font-semibold">
-            online multiplayer
+          <Button variant="secondary" isDisabled className="w-full font-semibold flex justify-between items-center px-4">
+            <span className="flex items-center gap-2">
+              <Globe className="w-4 h-4" />
+              online multiplayer
+            </span>
+            <Pickaxe className="w-4 h-4 opacity-50" />
           </Button>
         </div>
 
@@ -52,9 +65,9 @@ export default function Home() {
             className="w-8 h-8 min-w-0 rounded-full"
           >
             {isDark ? (
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></svg>
+              <Sun className="w-4 h-4" />
             ) : (
-              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+              <Moon className="w-4 h-4" />
             )}
           </Button>
         </div>
