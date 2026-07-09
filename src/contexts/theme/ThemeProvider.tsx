@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { ThemeContext } from "./useTheme";
 import type { Theme } from "../../types";
+import { config } from "../../config";
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState<Theme>(() => {
@@ -9,9 +10,9 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       if (stored === "dark" || stored === "light") {
         return stored;
       }
-      return "dark";
+      return config.defaultTheme;
     }
-    return "dark";
+    return config.defaultTheme;
   });
 
   useEffect(() => {

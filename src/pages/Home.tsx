@@ -2,6 +2,7 @@ import { Button, Surface, Separator } from "@heroui/react";
 import { useTheme } from "../contexts/theme";
 import { User, Users, Globe, Sun, Moon, Pickaxe } from "lucide-react";
 import { useNavigate } from "react-router";
+import { config } from "../config";
 
 export default function Home() {
   const { isDark, toggleTheme } = useTheme();
@@ -11,7 +12,7 @@ export default function Home() {
     <main className="flex min-h-screen w-full flex-col items-center justify-center p-4 bg-background">
       <Surface className="flex w-full max-w-[340px] flex-col gap-6 rounded-3xl p-6" variant="default">
         <div className="flex flex-col gap-1 text-center">
-          <h1 className="text-3xl font-extrabold text-foreground accent-font tracking-tight">ttthree</h1>
+          <h1 className="text-3xl font-extrabold text-foreground accent-font tracking-tight">{config.appName}</h1>
           <p className="text-sm text-default-500">
             play tic tac toe.
           </p>
