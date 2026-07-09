@@ -1,9 +1,11 @@
 import { Button, Surface, Separator } from "@heroui/react";
-import { useTheme } from "../contexts/ThemeContext";
+import { useTheme } from "../utils/theme";
 import { User, Users, Globe, Sun, Moon, Pickaxe } from "lucide-react";
+import { useNavigate } from "react-router";
 
 export default function Home() {
   const { isDark, toggleTheme } = useTheme();
+  const navigate = useNavigate();
 
   return (
     <main className="flex min-h-screen w-full flex-col items-center justify-center p-4 bg-background">
@@ -25,12 +27,15 @@ export default function Home() {
             </span>
             <Pickaxe className="w-4 h-4 opacity-50" />
           </Button>
-          <Button variant="secondary" isDisabled className="w-full font-semibold flex justify-between items-center px-4">
+          <Button 
+            variant="secondary" 
+            className="w-full font-semibold flex justify-between items-center px-4"
+            onClick={() => navigate("/local")}
+          >
             <span className="flex items-center gap-2">
               <Users className="w-4 h-4" />
               local multiplayer
             </span>
-            <Pickaxe className="w-4 h-4 opacity-50" />
           </Button>
           <Button variant="secondary" isDisabled className="w-full font-semibold flex justify-between items-center px-4">
             <span className="flex items-center gap-2">
