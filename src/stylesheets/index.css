@@ -2,13 +2,6 @@
 
 @import "@heroui/styles";
 
-@font-face {
-  font-family: "EvenMono";
-  src: url("../assets/fonts/CopyrightBolditalicStudio-EvenMonoRegularTrial.otf") format("opentype");
-  font-weight: normal;
-  font-style: normal;
-}
-
 :root {
   font-family: "Outfit", sans-serif;
 }
@@ -19,8 +12,4 @@ body {
 
 .accent-font {
   font-family: "Fraunces", serif;
-}
-
-.mono-font {
-  font-family: "EvenMono", monospace;
 }
