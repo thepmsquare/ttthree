@@ -4,14 +4,15 @@ import { ArrowLeft, RotateCcw, User, Trophy } from "lucide-react";
 import { useNavigate } from "react-router";
 import Grid from "../components/Grid";
 import { WINNING_COMBINATIONS } from "../utils/constants";
+import type { Board, GameWinner } from "../types";
 
 export default function LocalMultiplayer() {
   const navigate = useNavigate();
-  const [cells, setCells] = useState<("X" | "O" | null)[]>(Array(9).fill(null));
+  const [cells, setCells] = useState<Board>(Array(9).fill(null));
   const [isXNext, setIsXNext] = useState(true);
 
   // Check game status
-  let winner: "X" | "O" | "draw" | null = null;
+  let winner: GameWinner = null;
   let winningLine: number[] | null = null;
 
   for (const combo of WINNING_COMBINATIONS) {
