@@ -5,7 +5,7 @@ import "@fontsource/fraunces/index.css";
 import "./stylesheets/index.css";
 import App from "./App.tsx";
 import { BrowserRouter } from "react-router";
-import { ThemeProvider } from "./contexts/ThemeContext";
+import { ThemeProvider } from "./contexts/theme";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>

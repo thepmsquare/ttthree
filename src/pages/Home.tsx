@@ -1,5 +1,5 @@
 import { Button, Surface, Separator } from "@heroui/react";
-import { useTheme } from "../utils/theme";
+import { useTheme } from "../contexts/theme";
 import { User, Users, Globe, Sun, Moon, Pickaxe } from "lucide-react";
 import { useNavigate } from "react-router";
 
