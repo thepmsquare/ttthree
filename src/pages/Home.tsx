@@ -21,12 +21,15 @@ export default function Home() {
         <Separator />
 
         <div className="flex flex-col gap-3">
-          <Button variant="primary" isDisabled className="w-full font-semibold flex justify-between items-center px-4">
+          <Button 
+            variant="primary" 
+            className="w-full font-semibold flex justify-between items-center px-4"
+            onClick={() => navigate("/single")}
+          >
             <span className="flex items-center gap-2">
               <User className="w-4 h-4" />
               single player
             </span>
-            <Pickaxe className="w-4 h-4 opacity-50" />
           </Button>
           <Button 
             variant="secondary" 
