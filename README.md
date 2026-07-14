@@ -1,16 +1,14 @@
 # ttthree
 
-Tic-tac-toe game made with ReactJS.
-In single player mode, any random empty tile will be selected to mimic a second player.
+> 📌 versioning: see [CHANGELOG.md](./CHANGELOG.md).
 
-![](ttt-game.gif)
+## about
 
-To check out the project...
+tic tac toe game.
 
-> Clone / Download zip
+## env
 
-> run "npm install" (will require node and npm)
+- nodejs>=v24.16.0
+- npm>=v11.17.0
 
-> run "npm start"
-
-Feedback is appreciated. Thank you!
+> feedback is appreciated. thank you!
