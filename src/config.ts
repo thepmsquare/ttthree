@@ -5,4 +5,6 @@ export const config: AppConfig = {
   defaultTheme: "dark",
   opponentDelayBaseMs: 500,
   opponentDelayVarianceMs: 100,
+  backendBaseUrl:
+    import.meta.env.VITE_BACKEND_BASE_URL || "http://localhost:8000",
 };

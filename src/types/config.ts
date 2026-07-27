@@ -5,4 +5,5 @@ export interface AppConfig {
   defaultTheme: Theme;
   opponentDelayBaseMs?: number;
   opponentDelayVarianceMs?: number;
+  backendBaseUrl: string;
 }
