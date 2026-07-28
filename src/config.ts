@@ -7,4 +7,6 @@ export const config: AppConfig = {
   opponentDelayVarianceMs: 100,
   backendBaseUrl:
     import.meta.env.VITE_BACKEND_BASE_URL || "http://localhost:8000",
+  userIdStorageKey: "ttthree_user_id",
+  userProfileStorageKey: "ttthree_user_profile",
 };
