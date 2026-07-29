@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button, Surface, Separator } from "@heroui/react";
 import {
   ArrowLeft,
@@ -14,12 +14,16 @@ import Grid from "../components/Grid";
 import { WINNING_COMBINATIONS } from "../utils/constants";
 import { config } from "../config";
 import type { Board, GameWinner, Player } from "../types";
+import { recordSinglePlayerResult } from "../utils/user";
+import { useUser } from "../contexts/user";
 
 type GameState = "setup" | "playing";
 type Difficulty = "easy" | "medium" | "hard";
 
 export default function SinglePlayer() {
   const navigate = useNavigate();
+  const { updateProfile } = useUser();
+  const hasRecordedRef = useRef(false);
   const [gameState, setGameState] = useState<GameState>("setup");
   const [difficulty, setDifficulty] = useState<Difficulty>("easy");
   const [playerSide, setPlayerSide] = useState<Player>("X");
@@ -66,6 +70,7 @@ export default function SinglePlayer() {
       setQTable(modelData);
       setCells(Array(9).fill(null));
       setIsXNext(true);
+      hasRecordedRef.current = false;
       setGameState("playing");
     } catch (error) {
       console.error("failed to load model", error);
@@ -141,6 +146,23 @@ export default function SinglePlayer() {
     return () => clearTimeout(timer);
   }, [gameState, isOpponentTurn, cells, qTable, opponentSide, isXNext]);
 
+  // Record stats on game completion
+  useEffect(() => {
+    if (gameState === "playing" && winner && !hasRecordedRef.current) {
+      hasRecordedRef.current = true;
+      let outcome: "win" | "loss" | "draw";
+      if (winner === "draw") {
+        outcome = "draw";
+      } else if (winner === playerSide) {
+        outcome = "win";
+      } else {
+        outcome = "loss";
+      }
+      const updated = recordSinglePlayerResult(difficulty, outcome);
+      updateProfile(updated);
+    }
+  }, [winner, gameState, playerSide, difficulty, updateProfile]);
+
   const handleCellClick = (index: number) => {
     if (cells[index] || winner || isOpponentTurn) return;
 
@@ -153,6 +175,7 @@ export default function SinglePlayer() {
   const resetGame = () => {
     setCells(Array(9).fill(null));
     setIsXNext(true);
+    hasRecordedRef.current = false;
   };
 
   // Status message matching local multiplayer formatting

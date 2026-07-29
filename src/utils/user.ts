@@ -133,3 +133,30 @@ export function saveUserProfile(profile: UserProfile): void {
   if (typeof window === "undefined") return;
   localStorage.setItem(config.userProfileStorageKey, JSON.stringify(profile));
 }
+
+/**
+ * Records a single player game result (win, loss, or draw) for a specific difficulty in localStorage.
+ */
+export function recordSinglePlayerResult(
+  difficulty: "easy" | "medium" | "hard",
+  result: "win" | "loss" | "draw"
+): UserProfile {
+  const profile = getUserProfile();
+  const currentStats = profile.stats.singlePlayer[difficulty] || {
+    wins: 0,
+    losses: 0,
+    draws: 0,
+  };
+
+  if (result === "win") {
+    currentStats.wins += 1;
+  } else if (result === "loss") {
+    currentStats.losses += 1;
+  } else if (result === "draw") {
+    currentStats.draws += 1;
+  }
+
+  profile.stats.singlePlayer[difficulty] = currentStats;
+  saveUserProfile(profile);
+  return profile;
+}
