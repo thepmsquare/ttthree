@@ -1,13 +1,17 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button, Surface, Separator } from "@heroui/react";
 import { ArrowLeft, RotateCcw, User, Trophy } from "lucide-react";
 import { useNavigate } from "react-router";
 import Grid from "../components/Grid";
 import { WINNING_COMBINATIONS } from "../utils/constants";
 import type { Board, GameWinner } from "../types";
+import { recordLocalMultiplayerResult } from "../utils/user";
+import { useUser } from "../contexts/user";
 
 export default function LocalMultiplayer() {
   const navigate = useNavigate();
+  const { updateProfile } = useUser();
+  const hasRecordedRef = useRef(false);
   const [cells, setCells] = useState<Board>(Array(9).fill(null));
   const [isXNext, setIsXNext] = useState(true);
 
@@ -28,6 +32,15 @@ export default function LocalMultiplayer() {
     winner = "draw";
   }
 
+  // Record game outcome when game ends
+  useEffect(() => {
+    if (winner && !hasRecordedRef.current) {
+      hasRecordedRef.current = true;
+      const updated = recordLocalMultiplayerResult(winner);
+      updateProfile(updated);
+    }
+  }, [winner, updateProfile]);
+
   const handleCellClick = (index: number) => {
     if (cells[index] || winner) return;
 
@@ -40,6 +53,7 @@ export default function LocalMultiplayer() {
   const resetGame = () => {
     setCells(Array(9).fill(null));
     setIsXNext(true);
+    hasRecordedRef.current = false;
   };
 
   // Status message

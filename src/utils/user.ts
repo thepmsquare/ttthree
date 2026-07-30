@@ -160,3 +160,29 @@ export function recordSinglePlayerResult(
   saveUserProfile(profile);
   return profile;
 }
+
+/**
+ * Records a local multiplayer game result (X win, O win, or draw) in localStorage.
+ */
+export function recordLocalMultiplayerResult(
+  winner: "X" | "O" | "draw"
+): UserProfile {
+  const profile = getUserProfile();
+  const currentStats = profile.stats.localMultiplayer || {
+    xWins: 0,
+    oWins: 0,
+    draws: 0,
+  };
+
+  if (winner === "X") {
+    currentStats.xWins += 1;
+  } else if (winner === "O") {
+    currentStats.oWins += 1;
+  } else if (winner === "draw") {
+    currentStats.draws += 1;
+  }
+
+  profile.stats.localMultiplayer = currentStats;
+  saveUserProfile(profile);
+  return profile;
+}
