@@ -1,6 +1,6 @@
 import { Button, Surface, Separator } from "@heroui/react";
 import { useTheme } from "../contexts/theme";
-import { User, Users, Globe, Sun, Moon } from "lucide-react";
+import { User, Users, Globe, Sun, Moon, BarChart2 } from "lucide-react";
 import { useNavigate } from "react-router";
 import { config } from "../config";
 
@@ -68,20 +68,33 @@ export default function Home() {
             </a>
           </div>
 
-          <Button
-            isIconOnly
-            size="sm"
-            variant="secondary"
-            aria-label="Toggle theme"
-            onClick={toggleTheme}
-            className="w-8 h-8 min-w-0 rounded-full"
-          >
-            {isDark ? (
-              <Sun className="w-4 h-4" />
-            ) : (
-              <Moon className="w-4 h-4" />
-            )}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              isIconOnly
+              size="sm"
+              variant="secondary"
+              aria-label="statistics"
+              onClick={() => navigate("/stats")}
+              className="w-8 h-8 min-w-0 rounded-full"
+            >
+              <BarChart2 className="w-4 h-4" />
+            </Button>
+
+            <Button
+              isIconOnly
+              size="sm"
+              variant="secondary"
+              aria-label="Toggle theme"
+              onClick={toggleTheme}
+              className="w-8 h-8 min-w-0 rounded-full"
+            >
+              {isDark ? (
+                <Sun className="w-4 h-4" />
+              ) : (
+                <Moon className="w-4 h-4" />
+              )}
+            </Button>
+          </div>
         </div>
       </Surface>
     </main>
