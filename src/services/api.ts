@@ -1,3 +1,4 @@
+import { fetchJSONData, type APIOutput } from "squarecommons";
 import { config } from "../config";
 
 export interface RoomCreateResponseModel {
@@ -9,45 +10,34 @@ export interface RoomGetResponseModel {
   is_joinable: boolean;
 }
 
-export interface StandardResponse<T> {
-  data: T;
-  message?: string | null;
-  success?: boolean;
-}
+export type { APIOutput };
 
 /**
- * Safely extracts payload data from direct response object or StandardResponse wrapper.
+ * Safely extracts payload data from APIOutput or direct object.
  */
-function extractResponseData<T>(json: unknown): T {
-  if (json && typeof json === "object" && "data" in json) {
-    const wrapped = json as StandardResponse<T>;
+function extractResponseData<T>(res: APIOutput | unknown): T {
+  if (res && typeof res === "object" && "data" in res) {
+    const wrapped = res as { data: T };
     if (wrapped.data) {
       return wrapped.data;
     }
   }
-  return json as T;
+  return res as T;
 }
 
 /**
- * Calls POST /room to create a new game room.
+ * Calls POST /room to create a new game room using squarecommons fetchJSONData.
  */
 export async function createRoom(userId?: string): Promise<RoomCreateResponseModel> {
   try {
-    const response = await fetch(`${config.backendBaseUrl}/room`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(userId ? { user_id: userId } : {}),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text().catch(() => "");
-      throw new Error(errorText || `failed to create room (${response.status})`);
-    }
-
-    const json = await response.json();
-    return extractResponseData<RoomCreateResponseModel>(json);
+    const res = await fetchJSONData(
+      config.backendBaseUrl,
+      "/room",
+      "POST",
+      undefined,
+      userId ? { user_id: userId } : undefined
+    );
+    return extractResponseData<RoomCreateResponseModel>(res);
   } catch (error) {
     if (error instanceof Error) {
       throw error;
@@ -57,27 +47,17 @@ export async function createRoom(userId?: string): Promise<RoomCreateResponseMod
 }
 
 /**
- * Calls GET /room/{room_code} to check room status and joinability.
+ * Calls GET /room/{room_code} to check room status and joinability using squarecommons fetchJSONData.
  */
 export async function getRoom(roomCode: string): Promise<RoomGetResponseModel> {
   try {
     const trimmedCode = roomCode.trim();
-    const response = await fetch(`${config.backendBaseUrl}/room/${encodeURIComponent(trimmedCode)}`, {
-      method: "GET",
-      headers: {
-        "Content-Type": "application/json",
-      },
-    });
-
-    if (!response.ok) {
-      if (response.status === 404) {
-        throw new Error("room not found");
-      }
-      throw new Error(`failed to fetch room status (${response.status})`);
-    }
-
-    const json = await response.json();
-    return extractResponseData<RoomGetResponseModel>(json);
+    const res = await fetchJSONData(
+      config.backendBaseUrl,
+      `/room/${encodeURIComponent(trimmedCode)}`,
+      "GET"
+    );
+    return extractResponseData<RoomGetResponseModel>(res);
   } catch (error) {
     if (error instanceof Error) {
       throw error;
