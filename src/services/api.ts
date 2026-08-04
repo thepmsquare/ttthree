@@ -1,6 +1,10 @@
 import { fetchJSONData, type APIOutput } from "squarecommons";
 import { config } from "../config";
 
+export interface RoomCreateRequestModel {
+  user_id: string;
+}
+
 export interface RoomCreateResponseModel {
   room_code: string;
 }
@@ -26,16 +30,16 @@ function extractResponseData<T>(res: APIOutput | unknown): T {
 }
 
 /**
- * Calls POST /room to create a new game room using squarecommons fetchJSONData.
+ * Calls POST /room with user_id payload to create a new game room using squarecommons fetchJSONData.
  */
-export async function createRoom(userId?: string): Promise<RoomCreateResponseModel> {
+export async function createRoom(userId: string): Promise<RoomCreateResponseModel> {
   try {
     const res = await fetchJSONData(
       config.backendBaseUrl,
       "/room",
       "POST",
       undefined,
-      userId ? { user_id: userId } : undefined
+      { user_id: userId }
     );
     return extractResponseData<RoomCreateResponseModel>(res);
   } catch (error) {
