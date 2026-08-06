@@ -1,20 +1,13 @@
 import { fetchJSONData, type APIOutput } from "squarecommons";
 import { config } from "../config";
-
-export interface RoomCreateRequestModel {
-  user_id: string;
-}
-
-export interface RoomCreateResponseModel {
-  room_code: string;
-}
-
-export interface RoomGetResponseModel {
-  room_code: string;
-  is_joinable: boolean;
-}
+import type { RoomCreateResponseModel, RoomGetResponseModel } from "../types";
 
 export type { APIOutput };
+export type {
+  RoomCreateRequestModel,
+  RoomCreateResponseModel,
+  RoomGetResponseModel,
+} from "../types";
 
 /**
  * Safely extracts payload data from APIOutput or direct object.
@@ -30,16 +23,18 @@ function extractResponseData<T>(res: APIOutput | unknown): T {
 }
 
 /**
- * Calls POST /room with user_id payload to create a new game room using squarecommons fetchJSONData.
+ * Calls POST /api/v1/room with user_id payload to create a new game room using squarecommons fetchJSONData.
  */
-export async function createRoom(userId: string): Promise<RoomCreateResponseModel> {
+export async function createRoom(
+  userId: string,
+): Promise<RoomCreateResponseModel> {
   try {
     const res = await fetchJSONData(
       config.backendBaseUrl,
-      "/room",
+      "api/v1/room",
       "POST",
       undefined,
-      { user_id: userId }
+      { user_id: userId },
     );
     return extractResponseData<RoomCreateResponseModel>(res);
   } catch (error) {
@@ -51,15 +46,15 @@ export async function createRoom(userId: string): Promise<RoomCreateResponseMode
 }
 
 /**
- * Calls GET /room/{room_code} to check room status and joinability using squarecommons fetchJSONData.
+ * Calls GET /api/v1/room/{room_code} to check room status and joinability using squarecommons fetchJSONData.
  */
 export async function getRoom(roomCode: string): Promise<RoomGetResponseModel> {
   try {
     const trimmedCode = roomCode.trim();
     const res = await fetchJSONData(
       config.backendBaseUrl,
-      `/room/${encodeURIComponent(trimmedCode)}`,
-      "GET"
+      `api/v1/room/${encodeURIComponent(trimmedCode)}`,
+      "GET",
     );
     return extractResponseData<RoomGetResponseModel>(res);
   } catch (error) {

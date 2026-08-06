@@ -4,7 +4,13 @@ import { ArrowLeft, Copy, Check, QrCode, Play, Loader2 } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { QRCodeSVG } from "qrcode.react";
 import { createRoom, getRoom } from "../services/api";
+import {
+  RoomWebSocket,
+  type StateUpdatePayload,
+  type ErrorPayload,
+} from "../services/websocket";
 import { useUser } from "../contexts/user";
+import { getShareableRoomUrl } from "../utils/url";
 
 type ViewState = "setup" | "lobby";
 
@@ -23,6 +29,11 @@ export default function OnlineMultiplayer() {
   const [loadingMsg, setLoadingMsg] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [copied, setCopied] = useState(false);
+
+  // Real-time WebSocket room state
+  const [wsConnected, setWsConnected] = useState(false);
+  const [wsRole, setWsRole] = useState("");
+  const [wsStatus, setWsStatus] = useState("");
 
   // Helper to join room via API
   const joinRoomApi = useCallback(
@@ -103,6 +114,36 @@ export default function OnlineMultiplayer() {
     joinRoomApi(inputRoomCode);
   };
 
+  // WebSocket lifecycle management for room lobby
+  useEffect(() => {
+    if (view !== "lobby" || !activeRoomCode || !userId) return;
+
+    const ws = new RoomWebSocket(activeRoomCode, userId, {
+      onConnect: () => {
+        setWsConnected(true);
+      },
+      onDisconnect: () => {
+        setWsConnected(false);
+      },
+      onStateUpdate: (data: StateUpdatePayload) => {
+        setWsRole(data.your_role);
+        setWsStatus(data.status);
+      },
+      onError: (data: ErrorPayload) => {
+        if (data.message) {
+          setErrorMsg(data.message.toLowerCase());
+        }
+      },
+    });
+
+    ws.connect();
+
+    return () => {
+      ws.disconnect();
+      setWsConnected(false);
+    };
+  }, [view, activeRoomCode, userId]);
+
   // Leave room flow
   const handleLeaveRoom = () => {
     setView("setup");
@@ -110,19 +151,13 @@ export default function OnlineMultiplayer() {
     setIsHost(false);
     setIsJoinable(null);
     setErrorMsg("");
+    setWsConnected(false);
+    setWsRole("");
+    setWsStatus("");
     navigate("/online", { replace: true });
   };
 
-  // Clean shareable URL helper (avoids double slashes like //online/)
-  const getShareableUrl = (code: string) => {
-    if (!code) return "";
-    const origin = window.location.origin;
-    const base = import.meta.env.BASE_URL || "/";
-    const normalizedBase = base.endsWith("/") ? base : `${base}/`;
-    return `${origin}${normalizedBase}online/${encodeURIComponent(code)}`;
-  };
-
-  const joinUrl = getShareableUrl(activeRoomCode);
+  const joinUrl = getShareableRoomUrl(activeRoomCode);
 
   // Copy shareable link to clipboard
   const handleCopyLink = () => {
@@ -288,19 +323,36 @@ export default function OnlineMultiplayer() {
             </div>
 
             {/* Status Information */}
-            <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-default-100/50 text-center">
-              <div className="text-xs font-semibold text-default-500 mb-1">
-                status
-              </div>
-              <div className="text-xs font-medium text-foreground flex items-center gap-2">
-                <span className="w-2 h-2 rounded-full bg-warning animate-pulse" />
+            <div className="flex flex-col items-center justify-center p-3 rounded-xl bg-default-100/50 text-center gap-1">
+              <div className="text-xs font-semibold text-default-500 flex items-center gap-2">
+                <span
+                  className={`w-2 h-2 rounded-full ${
+                    wsConnected
+                      ? "bg-success"
+                      : "bg-warning animate-pulse"
+                  }`}
+                />
                 <span>
-                  {isHost
-                    ? "waiting for player 2 to join..."
-                    : isJoinable
-                      ? "room is joinable. waiting for host to start game..."
-                      : "connected to room. waiting for host to start game..."}
+                  {wsConnected ? "connected to server" : "connecting..."}
                 </span>
+              </div>
+
+              {wsRole && (
+                <div className="text-xs text-default-400 font-medium">
+                  your role: <span className="font-semibold text-foreground">{wsRole}</span>
+                </div>
+              )}
+
+              <div className="text-xs font-medium text-foreground">
+                {wsStatus ? (
+                  <span>status: {wsStatus}</span>
+                ) : isHost ? (
+                  <span>waiting for player 2 to join...</span>
+                ) : isJoinable ? (
+                  <span>room is joinable. waiting for host...</span>
+                ) : (
+                  <span>room joined. waiting for host...</span>
+                )}
               </div>
             </div>
 

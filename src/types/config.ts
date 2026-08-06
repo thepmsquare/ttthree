@@ -6,6 +6,7 @@ export interface AppConfig {
   opponentDelayBaseMs?: number;
   opponentDelayVarianceMs?: number;
   backendBaseUrl: string;
+  baseUrl: string;
   userIdStorageKey: string;
   userProfileStorageKey: string;
 }
