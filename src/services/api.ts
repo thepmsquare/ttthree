@@ -64,3 +64,21 @@ export async function getRoom(roomCode: string): Promise<RoomGetResponseModel> {
     throw new Error("room not found or network error");
   }
 }
+
+/**
+ * Pings the root backend endpoint (GET /) to check if backend server is online.
+ */
+export async function pingBackend(): Promise<boolean> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 3000);
+    const response = await fetch(`${config.backendBaseUrl}/`, {
+      method: "GET",
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    return response.ok || response.status < 500;
+  } catch {
+    return false;
+  }
+}
