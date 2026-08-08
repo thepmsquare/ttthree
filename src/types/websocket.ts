@@ -9,8 +9,13 @@ export interface JoinRoomPayload {
 
 export interface StateUpdatePayload {
   room_code: string;
-  your_role: string;
   status: string;
+  host_user_id: string;
+  guest_user_id: string | null;
+  current_x_player: string;
+  created_at: number;
+  host_connected: boolean;
+  guest_connected: boolean;
 }
 
 export interface ErrorPayload {
