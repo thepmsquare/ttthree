@@ -2,14 +2,20 @@ import { config } from "../config";
 import type {
   WsMessage,
   StateUpdatePayload,
+  GameOverPayload,
   ErrorPayload,
   WsCallbacks,
+  MakeMovePayload,
 } from "../types";
 
 export type {
   WsMessage,
   JoinRoomPayload,
+  MakeMovePayload,
+  PreviousMatchResults,
+  RoomGameStatus,
   StateUpdatePayload,
+  GameOverPayload,
   ErrorPayload,
   WsCallbacks,
 } from "../types";
@@ -72,10 +78,13 @@ export class RoomWebSocket {
   }
 
   private handleIncomingMessage(msg: WsMessage): void {
+    console.log("[ws recv]", msg);
     const { event, payload } = msg;
 
     if (event === "STATE_UPDATE") {
       this.callbacks.onStateUpdate?.(payload as StateUpdatePayload);
+    } else if (event === "GAME_OVER") {
+      this.callbacks.onGameOver?.(payload as GameOverPayload);
     } else if (event === "ERROR") {
       this.callbacks.onError?.(payload as ErrorPayload);
     }
@@ -84,8 +93,23 @@ export class RoomWebSocket {
   public send<T = unknown>(event: string, payload: T): void {
     if (this.socket && this.socket.readyState === WebSocket.OPEN) {
       const message: WsMessage<T> = { event, payload };
+      console.log("[ws send]", message);
       this.socket.send(JSON.stringify(message));
+    } else {
+      console.warn("[ws send failed: socket not open]", event, this.socket?.readyState);
     }
+  }
+
+  public makeMove(cellIndex: number): void {
+    this.send<MakeMovePayload>("MAKE_MOVE", { cell_index: cellIndex });
+  }
+
+  public requestRematch(): void {
+    this.send("REQUEST_REMATCH", {});
+  }
+
+  public leaveRoom(): void {
+    this.send("LEAVE_ROOM", {});
   }
 
   public disconnect(): void {

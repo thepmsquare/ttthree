@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import { UserContext } from "./useUser";
 import {
   getOrCreateUserId,
@@ -8,8 +8,11 @@ import {
 } from "../../utils/user";
 
 export function UserProvider({ children }: { children: React.ReactNode }) {
-  const [userId, setUserId] = useState<string>("");
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [userId, setUserId] = useState<string>(() => getOrCreateUserId());
+  const [profile, setProfile] = useState<UserProfile | null>(() => {
+    const id = getOrCreateUserId();
+    return id ? getUserProfile(id) : null;
+  });
 
   const refreshProfile = useCallback(() => {
     const id = getOrCreateUserId();
@@ -22,10 +25,6 @@ export function UserProvider({ children }: { children: React.ReactNode }) {
     saveUserProfile(newProfile);
     setProfile(newProfile);
   }, []);
-
-  useEffect(() => {
-    refreshProfile();
-  }, [refreshProfile]);
 
   return (
     <UserContext.Provider

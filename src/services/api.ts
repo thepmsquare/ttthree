@@ -41,7 +41,7 @@ export async function createRoom(
     if (error instanceof Error) {
       throw error;
     }
-    throw new Error("failed to create room");
+    throw new Error("failed to create room", { cause: error });
   }
 }
 
@@ -61,7 +61,7 @@ export async function getRoom(roomCode: string): Promise<RoomGetResponseModel> {
     if (error instanceof Error) {
       throw error;
     }
-    throw new Error("room not found or network error");
+    throw new Error("room not found or network error", { cause: error });
   }
 }
 

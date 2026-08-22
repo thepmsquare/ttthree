@@ -186,3 +186,31 @@ export function recordLocalMultiplayerResult(
   saveUserProfile(profile);
   return profile;
 }
+
+/**
+ * Records an online multiplayer game result (win, loss, or draw) in localStorage.
+ */
+export function recordOnlineMultiplayerResult(
+  result: "win" | "loss" | "draw"
+): UserProfile {
+  const profile = getUserProfile();
+  const currentStats = profile.stats.onlineMultiplayer || {
+    wins: 0,
+    losses: 0,
+    draws: 0,
+    roomsCreated: 0,
+    roomsJoined: 0,
+  };
+
+  if (result === "win") {
+    currentStats.wins += 1;
+  } else if (result === "loss") {
+    currentStats.losses += 1;
+  } else if (result === "draw") {
+    currentStats.draws += 1;
+  }
+
+  profile.stats.onlineMultiplayer = currentStats;
+  saveUserProfile(profile);
+  return profile;
+}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { Button, Surface, Separator, Chip } from "@heroui/react";
 import {
   ArrowLeft,
@@ -9,6 +9,10 @@ import {
   Loader2,
   X,
   Circle,
+  Trophy,
+  RotateCcw,
+  AlertCircle,
+  PauseCircle,
 } from "lucide-react";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { QRCodeSVG } from "qrcode.react";
@@ -16,18 +20,29 @@ import { createRoom, getRoom } from "../services/api";
 import {
   RoomWebSocket,
   type StateUpdatePayload,
+  type GameOverPayload,
   type ErrorPayload,
 } from "../services/websocket";
 import { useUser } from "../contexts/user";
 import { getShareableRoomUrl } from "../utils/url";
+import { recordOnlineMultiplayerResult } from "../utils/user";
+import Grid from "../components/Grid";
+import type { CellValue } from "../types";
 
 type ViewState = "setup" | "lobby";
 
 function formatCreatedAt(createdAtTimestamp?: number): string {
   if (!createdAtTimestamp) return "";
-  const ms = createdAtTimestamp > 1e11 ? createdAtTimestamp : createdAtTimestamp * 1000;
+  const ms =
+    createdAtTimestamp > 1e11
+      ? createdAtTimestamp
+      : createdAtTimestamp * 1000;
   const date = new Date(ms);
-  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  return date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+  });
 }
 
 export default function OnlineMultiplayer() {
@@ -37,7 +52,9 @@ export default function OnlineMultiplayer() {
   const { userId } = useUser();
 
   const [view, setView] = useState<ViewState>("setup");
-  const [inputRoomCode, setInputRoomCode] = useState("");
+  const [inputRoomCode, setInputRoomCode] = useState(
+    () => params.roomCode || searchParams.get("room") || ""
+  );
   const [activeRoomCode, setActiveRoomCode] = useState("");
   const [isJoinable, setIsJoinable] = useState<boolean | null>(null);
   const [isHost, setIsHost] = useState(false);
@@ -46,9 +63,14 @@ export default function OnlineMultiplayer() {
   const [errorMsg, setErrorMsg] = useState("");
   const [copied, setCopied] = useState(false);
 
-  // Real-time WebSocket room state
+  // Real-time WebSocket room & referee state
   const [wsConnected, setWsConnected] = useState(false);
   const [roomState, setRoomState] = useState<StateUpdatePayload | null>(null);
+  const [gameOverData, setGameOverData] = useState<GameOverPayload | null>(null);
+
+  const wsRef = useRef<RoomWebSocket | null>(null);
+  const hasRecordedGameRef = useRef(false);
+  const mySymbolRef = useRef<"X" | "O">("X");
 
   // Helper to join room via API
   const joinRoomApi = useCallback(async (codeToJoin: string) => {
@@ -88,11 +110,49 @@ export default function OnlineMultiplayer() {
   // Auto-detect room code from URL params or search query on mount (QR code scan deep linking)
   useEffect(() => {
     const urlRoomCode = params.roomCode || searchParams.get("room");
-    if (urlRoomCode && view === "setup") {
-      setInputRoomCode(urlRoomCode);
-      joinRoomApi(urlRoomCode);
-    }
-  }, [params.roomCode, searchParams, view, joinRoomApi]);
+    if (!urlRoomCode || view !== "setup") return;
+
+    let isMounted = true;
+    const trimmed = urlRoomCode.trim();
+    if (!trimmed) return;
+
+    Promise.resolve().then(async () => {
+      if (!isMounted) return;
+      setLoading(true);
+      setLoadingMsg("checking room...");
+      setErrorMsg("");
+
+      try {
+        const roomData = await getRoom(trimmed);
+        if (!isMounted) return;
+        setActiveRoomCode(roomData.room_code);
+        setIsJoinable(roomData.is_joinable);
+
+        if (roomData.is_joinable) {
+          setIsHost(false);
+          setView("lobby");
+        } else {
+          setErrorMsg("room is not joinable or full");
+        }
+      } catch (err) {
+        if (!isMounted) return;
+        if (err instanceof Error) {
+          setErrorMsg(err.message.toLowerCase());
+        } else {
+          setErrorMsg("room not found");
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+          setLoadingMsg("");
+        }
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [params.roomCode, searchParams, view]);
 
   // Create room flow
   const handleCreateRoom = async () => {
@@ -126,7 +186,32 @@ export default function OnlineMultiplayer() {
     joinRoomApi(inputRoomCode);
   };
 
-  // WebSocket lifecycle management for room lobby
+  // Derive role and symbol calculations
+  const effectiveIsHost = roomState
+    ? roomState.host_user_id === userId
+    : isHost;
+  const derivedRole = effectiveIsHost ? "host" : "guest";
+
+  const mySymbol: "X" | "O" = roomState
+    ? roomState.current_x_player.toLowerCase() === "host"
+      ? effectiveIsHost
+        ? "X"
+        : "O"
+      : effectiveIsHost
+        ? "O"
+        : "X"
+    : effectiveIsHost
+      ? "X"
+      : "O";
+
+  const opponentSymbol: "X" | "O" = mySymbol === "X" ? "O" : "X";
+
+  // Keep mySymbol in ref to prevent re-instantiating WebSocket on symbol change
+  useEffect(() => {
+    mySymbolRef.current = mySymbol;
+  }, [mySymbol]);
+
+  // WebSocket lifecycle management for room lobby & match
   useEffect(() => {
     if (view !== "lobby" || !activeRoomCode || !userId) return;
 
@@ -140,6 +225,29 @@ export default function OnlineMultiplayer() {
       onStateUpdate: (data: StateUpdatePayload) => {
         setRoomState(data);
         setIsHost(data.host_user_id === userId);
+
+        // If a new match starts or continues, clear previous game over data
+        if (data.status === "match_ongoing") {
+          setGameOverData(null);
+          hasRecordedGameRef.current = false;
+        }
+      },
+      onGameOver: (data: GameOverPayload) => {
+        setGameOverData(data);
+
+        // Record statistics once
+        if (!hasRecordedGameRef.current) {
+          hasRecordedGameRef.current = true;
+          let outcome: "win" | "loss" | "draw";
+          if (data.winner === "DRAW") {
+            outcome = "draw";
+          } else if (data.winner === mySymbolRef.current) {
+            outcome = "win";
+          } else {
+            outcome = "loss";
+          }
+          recordOnlineMultiplayerResult(outcome);
+        }
       },
       onError: (data: ErrorPayload) => {
         if (data.message) {
@@ -148,17 +256,24 @@ export default function OnlineMultiplayer() {
       },
     });
 
+    wsRef.current = ws;
     ws.connect();
 
     return () => {
       ws.disconnect();
+      wsRef.current = null;
       setWsConnected(false);
       setRoomState(null);
+      setGameOverData(null);
+      hasRecordedGameRef.current = false;
     };
   }, [view, activeRoomCode, userId]);
 
   // Leave room flow
   const handleLeaveRoom = () => {
+    wsRef.current?.leaveRoom();
+    wsRef.current?.disconnect();
+    wsRef.current = null;
     setView("setup");
     setActiveRoomCode("");
     setIsHost(false);
@@ -166,35 +281,63 @@ export default function OnlineMultiplayer() {
     setErrorMsg("");
     setWsConnected(false);
     setRoomState(null);
+    setGameOverData(null);
+    hasRecordedGameRef.current = false;
     navigate("/online", { replace: true });
+  };
+
+  // Cell click action
+  const handleCellClick = (index: number) => {
+    if (
+      isMyTurn &&
+      !gameOverData &&
+      (roomState?.status === "ready" || roomState?.status === "match_ongoing") &&
+      boardCells[index] === null
+    ) {
+      wsRef.current?.makeMove(index);
+    }
+  };
+
+  // Rematch action
+  const handleRequestRematch = () => {
+    wsRef.current?.requestRematch();
   };
 
   const joinUrl = getShareableRoomUrl(activeRoomCode);
 
-  // Derive host status directly from WS roomState when available
-  const effectiveIsHost = roomState
-    ? roomState.host_user_id === userId
-    : isHost;
-
-  // Role can only be host or guest
-  const derivedRole = effectiveIsHost ? "host" : "guest";
-
-  // Derive starting symbol (X or O) based on current_x_player ("host" or "guest")
-  const mySymbol = roomState
-    ? roomState.current_x_player.toLowerCase() === derivedRole
-      ? "X"
-      : "O"
-    : effectiveIsHost
-      ? "X"
-      : "O";
+  // Turn status
+  const isMyTurn =
+    mySymbol === roomState?.current_turn &&
+    (roomState?.status === "ready" ||
+      roomState?.status === "match_ongoing") &&
+    !gameOverData;
 
   // Both players connected check
-  const isBothJoined = Boolean(
-    roomState?.host_user_id &&
-    roomState?.guest_user_id &&
-    roomState?.host_connected &&
-    roomState?.guest_connected,
-  );
+  const isBothJoined =
+    roomState?.status === "ready" ||
+    roomState?.status === "match_ongoing" ||
+    Boolean(
+      roomState?.host_user_id &&
+        roomState?.guest_user_id &&
+        roomState?.host_connected &&
+        roomState?.guest_connected
+    );
+
+  // Board cells conversion to CellValue[]
+  const boardCells: CellValue[] = (
+    roomState?.board || Array(9).fill("")
+  ).map((c) => (c === "X" || c === "O" ? (c as CellValue) : null));
+
+  // Determine current match screen state
+  const isMatchScreen =
+    roomState?.status === "ready" ||
+    roomState?.status === "match_ongoing" ||
+    roomState?.status === "paused" ||
+    gameOverData !== null;
+
+  const isDisconnectedScreen =
+    roomState?.status === "missing_player" ||
+    roomState?.status === "empty_lobby";
 
   // Copy shareable link to clipboard
   const handleCopyLink = () => {
@@ -204,6 +347,15 @@ export default function OnlineMultiplayer() {
       setTimeout(() => setCopied(false), 2000);
     });
   };
+
+  // Scoreboard stats from roomState or gameOverData
+  const scores =
+    gameOverData?.previous_match_results ||
+    roomState?.previous_match_results || {
+      host_wins: 0,
+      guest_wins: 0,
+      draws: 0,
+    };
 
   return (
     <main className="flex min-h-screen w-full flex-col items-center justify-center p-4 bg-background">
@@ -230,7 +382,11 @@ export default function OnlineMultiplayer() {
             <ArrowLeft className="w-4 h-4" />
           </Button>
           <h1 className="text-xl font-extrabold text-foreground tracking-tight">
-            online room
+            {view === "setup"
+              ? "online room"
+              : isMatchScreen
+                ? "online match"
+                : "room lobby"}
           </h1>
           <div className="w-8 h-8" />
         </div>
@@ -241,7 +397,8 @@ export default function OnlineMultiplayer() {
           </div>
         )}
 
-        {view === "setup" ? (
+        {/* View 1: Setup View */}
+        {view === "setup" && (
           <div className="flex flex-col gap-4">
             <Button
               variant="primary"
@@ -297,7 +454,186 @@ export default function OnlineMultiplayer() {
               </Button>
             </div>
           </div>
-        ) : (
+        )}
+
+        {/* View 2: Special Disconnected/Missing Player View */}
+        {view === "lobby" && isDisconnectedScreen && (
+          <div className="flex flex-col gap-5 text-center py-4">
+            <div className="flex justify-center">
+              <div className="p-3 bg-danger/10 rounded-full text-danger">
+                <AlertCircle className="w-8 h-8" />
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-1">
+              <h2 className="text-lg font-bold text-foreground">
+                {roomState?.status === "missing_player"
+                  ? "opponent left"
+                  : "room closed"}
+              </h2>
+              <p className="text-xs text-default-500">
+                {roomState?.status === "missing_player"
+                  ? "opponent left the match."
+                  : "room expired or was closed."}
+              </p>
+            </div>
+
+            <Separator />
+
+            <Button
+              variant="primary"
+              className="w-full font-semibold h-11 rounded-xl"
+              onClick={handleLeaveRoom}
+            >
+              <span>return to menu</span>
+            </Button>
+          </div>
+        )}
+
+        {/* View 3: Active Game Board View */}
+        {view === "lobby" && !isDisconnectedScreen && isMatchScreen && (
+          <div className="flex flex-col gap-4">
+            {/* Scoreboard */}
+            <div className="flex items-center justify-between px-3 py-2 bg-default-100/60 rounded-2xl text-xs font-semibold text-default-500">
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] text-default-400">
+                  {effectiveIsHost
+                    ? `you (host - ${mySymbol.toLowerCase()})`
+                    : `host (${opponentSymbol.toLowerCase()})`}
+                </span>
+                <span className="text-sm font-bold text-foreground">
+                  {scores.host_wins}
+                </span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] text-default-400">draws</span>
+                <span className="text-sm font-bold text-foreground">
+                  {scores.draws}
+                </span>
+              </div>
+              <div className="flex flex-col items-center">
+                <span className="text-[10px] text-default-400">
+                  {!effectiveIsHost
+                    ? `you (guest - ${mySymbol.toLowerCase()})`
+                    : `guest (${opponentSymbol.toLowerCase()})`}
+                </span>
+                <span className="text-sm font-bold text-foreground">
+                  {scores.guest_wins}
+                </span>
+              </div>
+            </div>
+
+            {/* Paused Overlay Alert */}
+            {roomState?.status === "paused" && (
+              <div className="flex items-center justify-center gap-2 p-2.5 rounded-xl bg-warning/10 border border-warning/20 text-warning text-xs font-medium text-center animate-pulse">
+                <PauseCircle className="w-4 h-4" />
+                <span>opponent disconnected. waiting for reconnection...</span>
+              </div>
+            )}
+
+            {/* Player Turn Status Banner */}
+            {!gameOverData &&
+              (roomState?.status === "ready" ||
+                roomState?.status === "match_ongoing") && (
+                <div className="flex flex-col items-center justify-center py-1 text-center">
+                  <div className="text-xs text-default-400 font-medium mb-1">
+                    {isMyTurn ? "your turn" : "opponent's turn"}
+                  </div>
+                  <div className="flex items-center gap-2 text-base font-bold text-foreground">
+                    <span
+                      className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                        isMyTurn
+                          ? "bg-success/15 text-success animate-pulse"
+                          : "bg-default-100 text-default-500"
+                      }`}
+                    >
+                      {roomState?.current_turn === "X" ? (
+                        <X className="w-3.5 h-3.5 text-danger stroke-[2.5]" />
+                      ) : (
+                        <Circle className="w-3.5 h-3.5 text-primary stroke-[2.5]" />
+                      )}
+                      <span>
+                        turn: {roomState?.current_turn?.toLowerCase()}
+                      </span>
+                    </span>
+                  </div>
+                </div>
+              )}
+
+            {/* Game Over Summary Banner */}
+            {gameOverData && (
+              <div className="flex flex-col items-center justify-center py-2 text-center">
+                <div className="text-xs text-default-400 font-medium mb-1">
+                  match finished
+                </div>
+                <div className="flex items-center gap-2 text-lg font-bold text-foreground">
+                  {gameOverData.winner !== "DRAW" &&
+                    gameOverData.winner === mySymbol && (
+                      <Trophy className="w-5 h-5 text-warning" />
+                    )}
+                  <span>
+                    {gameOverData.winner === "DRAW"
+                      ? "it's a draw!"
+                      : gameOverData.winner === mySymbol
+                        ? "you won!"
+                        : "you lost!"}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Interactive Grid */}
+            <div className="flex justify-center w-full">
+              <Grid
+                cells={boardCells}
+                onCellClick={handleCellClick}
+                winningLine={gameOverData?.winning_line || null}
+                disabled={
+                  !isMyTurn ||
+                  !!gameOverData ||
+                  (roomState?.status !== "ready" &&
+                    roomState?.status !== "match_ongoing")
+                }
+              />
+            </div>
+
+            <Separator />
+
+            {/* In-Game / Game-Over Actions */}
+            <div className="flex flex-col gap-2">
+              {gameOverData ? (
+                <>
+                  <Button
+                    variant="primary"
+                    className="w-full font-semibold h-11 rounded-xl flex items-center justify-center gap-2"
+                    onClick={handleRequestRematch}
+                  >
+                    <RotateCcw className="w-4 h-4" />
+                    <span>play again</span>
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    className="w-full font-semibold h-11 rounded-xl"
+                    onClick={handleLeaveRoom}
+                  >
+                    <span>quit to menu</span>
+                  </Button>
+                </>
+              ) : (
+                <Button
+                  variant="secondary"
+                  className="w-full font-semibold h-11 rounded-xl"
+                  onClick={handleLeaveRoom}
+                >
+                  <span>leave match</span>
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* View 4: Lobby View (not_started / ready) */}
+        {view === "lobby" && !isDisconnectedScreen && !isMatchScreen && (
           <div className="flex flex-col gap-5">
             {/* Room Code Display with Copy Button */}
             <div className="flex flex-col items-center gap-2">
@@ -364,14 +700,13 @@ export default function OnlineMultiplayer() {
                 <span>you play as:</span>
                 <span className="flex items-center gap-1 font-bold text-foreground">
                   {mySymbol === "X" ? (
-                    <>
-                      <X className="w-4 h-4 text-danger stroke-[2.5]" />
-                    </>
+                    <X className="w-4 h-4 text-danger stroke-[2.5]" />
                   ) : (
-                    <>
-                      <Circle className="w-3.5 h-3.5 text-primary stroke-[2.5]" />
-                    </>
+                    <Circle className="w-3.5 h-3.5 text-primary stroke-[2.5]" />
                   )}
+                </span>
+                <span className="text-default-400 text-[10px]">
+                  ({derivedRole})
                 </span>
               </div>
 
@@ -452,7 +787,13 @@ export default function OnlineMultiplayer() {
                 className="w-full font-semibold h-11 rounded-xl flex items-center justify-center gap-2"
                 isDisabled={!isBothJoined}
                 onClick={() => {
-                  // Stub action - does nothing for now as requested
+                  console.log("[start game button clicked]", {
+                    ws: wsRef.current,
+                    roomCode: activeRoomCode,
+                    roomState,
+                    isBothJoined,
+                  });
+                  wsRef.current?.send("START_GAME", {});
                 }}
               >
                 <Play className="w-4 h-4 fill-current" />
